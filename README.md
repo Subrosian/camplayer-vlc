@@ -6,6 +6,7 @@ This is a simple "vibe-coded" app written in Go that boots up a Raspberry Pi and
 
 -Make sure you use "pi" as the username
 
+
 Download the installer
 ```
 wget https://github.com/Subrosian/camplayer-vlc/raw/refs/heads/main/install.sh
