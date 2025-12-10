@@ -5,3 +5,7 @@ sudo apt install vlc
 git clone https://github.com/Subrosian/camplayer-vlc
 cd camplayer-vlc/
 go build -o camplayer-vlc .
+
+
+git pull
+go build -o camplayer-vlc .
