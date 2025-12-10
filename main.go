@@ -15,9 +15,8 @@ import (
 const configPath = "/etc/camplayer-vlc.conf"
 
 type Config struct {
-	RTSP_URL       string
-	VLC_PATH       string
-	VLC_EXTRA_ARGS []string
+	RTSP_URL string
+	VLC_PATH string
 }
 
 func main() {
@@ -26,21 +25,23 @@ func main() {
 
 	cfg, err := loadConfig(configPath)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("Failed to load config %s: %v", configPath, err)
 	}
 
 	if cfg.RTSP_URL == "" {
 		log.Fatalf("RTSP_URL is required in %s", configPath)
 	}
+	if cfg.VLC_PATH == "" {
+		cfg.VLC_PATH = "vlc"
+	}
 
-	log.Printf("Config: RTSP_URL=%s VLC_PATH=%s EXTRA_ARGS=%v",
-		cfg.RTSP_URL, cfg.VLC_PATH, cfg.VLC_EXTRA_ARGS)
+	log.Printf("Config loaded: VLC_PATH=%s RTSP_URL=%s", cfg.VLC_PATH, cfg.RTSP_URL)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	if err := runLoop(ctx, cfg); err != nil {
-		log.Fatalf("Supervisor exiting: %v", err)
+		log.Fatalf("Supervisor exiting with error: %v", err)
 	}
 }
 
@@ -51,22 +52,13 @@ func loadConfig(path string) (*Config, error) {
 	}
 	defer f.Close()
 
-	cfg := &Config{
-		VLC_PATH: "vlc",
-		VLC_EXTRA_ARGS: []string{
-			"-I", "dummy",
-			"--no-osd",
-			"--no-video-title-show",
-			"--rtsp-tcp",
-			"--network-caching=300",
-			"--sout-keep",
-		},
-	}
-
+	cfg := &Config{}
 	scanner := bufio.NewScanner(f)
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
+		// Skip comments and blank lines
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -83,20 +75,18 @@ func loadConfig(path string) (*Config, error) {
 		switch key {
 		case "RTSP_URL":
 			cfg.RTSP_URL = val
-
 		case "VLC_PATH":
-			if val != "" {
-				cfg.VLC_PATH = val
-			}
-
-		case "VLC_EXTRA_ARGS":
-			if val != "" {
-				cfg.VLC_EXTRA_ARGS = strings.Fields(val)
-			}
+			cfg.VLC_PATH = val
+		default:
+			log.Printf("Ignoring unknown config key: %s", key)
 		}
 	}
 
-	return cfg, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func runLoop(ctx context.Context, cfg *Config) error {
@@ -106,34 +96,34 @@ func runLoop(ctx context.Context, cfg *Config) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Shutdown requested")
+			log.Println("Shutdown requested, exiting supervisor loop")
 			return nil
 		default:
 		}
 
-		args := append(append([]string{}, cfg.VLC_EXTRA_ARGS...), cfg.RTSP_URL)
+		// Command: vlc <rtsp-url>
+		args := []string{cfg.RTSP_URL}
 		cmd := exec.CommandContext(ctx, cfg.VLC_PATH, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		log.Printf("Launching VLC: %s %s", cfg.VLC_PATH, strings.Join(args, " "))
+		log.Printf("Launching VLC: %s %s", cfg.VLC_PATH, cfg.RTSP_URL)
 
 		if err := cmd.Start(); err != nil {
 			log.Printf("Failed to start VLC: %v", err)
 		} else {
 			err := cmd.Wait()
 			if ctx.Err() != nil {
-				log.Println("Context canceled; stopping supervisor.")
+				log.Println("Context cancelled while waiting for VLC; exiting.")
 				return nil
 			}
 			log.Printf("VLC exited: %v", err)
 		}
 
 		log.Printf("Restarting VLC in %s...", backoff)
-
 		select {
 		case <-ctx.Done():
-			log.Println("Shutdown requested during backoff")
+			log.Println("Shutdown requested during backoff; exiting.")
 			return nil
 		case <-time.After(backoff):
 		}
