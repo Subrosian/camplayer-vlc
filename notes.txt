@@ -6,6 +6,9 @@ sudo apt install vlc
 git clone https://github.com/Subrosian/camplayer-vlc
 cd camplayer-vlc/
 go build -o camplayer-vlc .
+sudo cp camplayer-vlc /usr/local/bin/
+sudo chown root:root /usr/local/bin/camplayer-vlc
+sudo chmod 755 /usr/local/bin/camplayer-vlc
 
 --- Update Project
 git pull
@@ -13,4 +16,30 @@ go build -o camplayer-vlc .
 
 --- Make config
 sudo nano /etc/camplayer-vlc.conf
+***
 RTSP_URL=rtsp://user:pass@camera-ip:554/stream
+
+--- Make service
+sudo nano /etc/systemd/system/camplayer-vlc.service
+***
+[Unit]
+Description=camplayer-vlc RTSP video launcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/camplayer-vlc
+Restart=always
+RestartSec=2
+
+# Run as user "pi", you may change if needed
+User=pi
+Group=pi
+
+# If using X11 video output to HDMI:
+# Environment=DISPLAY=:0
+# Environment=XAUTHORITY=/home/pi/.Xauthority
+
+[Install]
+WantedBy=multi-user.target
