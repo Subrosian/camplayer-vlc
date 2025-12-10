@@ -23,7 +23,8 @@ type Config struct {
 }
 
 var (
-	cfgMu sync.Mutex
+	cfgMu        sync.Mutex
+	restartVLCCh = make(chan struct{}, 1)
 )
 
 // ---- main ----
@@ -32,7 +33,7 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
 	log.SetPrefix("[camplayer-vlc] ")
 
-	// Initial config load (just to fail fast if config unreadable)
+	// Initial config load just to warn early if unreadable
 	if _, err := loadConfig(); err != nil {
 		log.Printf("Warning: initial config load failed: %v (will retry in loop)", err)
 	}
@@ -111,7 +112,6 @@ func saveConfig(newCfg *Config) error {
 	cfgMu.Lock()
 	defer cfgMu.Unlock()
 
-	// Very simple writer: overwrite with only these keys
 	f, err := os.Create(configPath)
 	if err != nil {
 		return err
@@ -140,6 +140,7 @@ func runLoop(ctx context.Context) error {
 	const maxBackoff = 30 * time.Second
 
 	for {
+		// Check for shutdown before doing work
 		select {
 		case <-ctx.Done():
 			log.Println("Shutdown requested, exiting supervisor loop")
@@ -147,35 +148,27 @@ func runLoop(ctx context.Context) error {
 		default:
 		}
 
+		// Load config (with simple retry/backoff if needed)
 		cfg, err := loadConfig()
 		if err != nil {
 			log.Printf("Failed to load config, retrying in %s: %v", backoff, err)
-			select {
-			case <-ctx.Done():
+			if !sleepOrRestart(ctx, backoff) {
 				return nil
-			case <-time.After(backoff):
 			}
-			// increase backoff and continue
-			if backoff < maxBackoff {
-				backoff *= 2
-				if backoff > maxBackoff {
-					backoff = maxBackoff
-				}
-			}
+			backoff = nextBackoff(backoff, maxBackoff)
 			continue
 		}
 
 		if cfg.RTSP_URL == "" {
 			log.Printf("RTSP_URL is empty in %s, retrying in %s", configPath, backoff)
-			select {
-			case <-ctx.Done():
+			if !sleepOrRestart(ctx, backoff) {
 				return nil
-			case <-time.After(backoff):
 			}
+			backoff = nextBackoff(backoff, maxBackoff)
 			continue
 		}
 
-		// Reset backoff after a successful config read
+		// Reset backoff after a good config
 		backoff = 2 * time.Second
 
 		args := []string{cfg.RTSP_URL}
@@ -187,30 +180,63 @@ func runLoop(ctx context.Context) error {
 
 		if err := cmd.Start(); err != nil {
 			log.Printf("Failed to start VLC: %v", err)
-		} else {
-			err := cmd.Wait()
-			if ctx.Err() != nil {
-				log.Println("Context cancelled while waiting for VLC; exiting.")
+			if !sleepOrRestart(ctx, backoff) {
 				return nil
 			}
+			backoff = nextBackoff(backoff, maxBackoff)
+			continue
+		}
+
+		// Wait for VLC to exit OR restart signal OR shutdown
+		waitCh := make(chan error, 1)
+		go func() { waitCh <- cmd.Wait() }()
+
+		select {
+		case <-ctx.Done():
+			log.Println("Shutdown requested, killing VLC")
+			_ = cmd.Process.Kill()
+			<-waitCh
+			return nil
+
+		case <-restartVLCCh:
+			log.Println("Restart requested from web UI, killing VLC")
+			_ = cmd.Process.Kill()
+			<-waitCh
+			// Immediately restart VLC with new config
+			continue
+
+		case err := <-waitCh:
 			log.Printf("VLC exited: %v", err)
+			// Fall through to backoff restart below
 		}
 
 		log.Printf("Restarting VLC in %s...", backoff)
-		select {
-		case <-ctx.Done():
-			log.Println("Shutdown requested during backoff; exiting.")
+		if !sleepOrRestart(ctx, backoff) {
 			return nil
-		case <-time.After(backoff):
 		}
-
-		if backoff < maxBackoff {
-			backoff *= 2
-			if backoff > maxBackoff {
-				backoff = maxBackoff
-			}
-		}
+		backoff = nextBackoff(backoff, maxBackoff)
 	}
+}
+
+func sleepOrRestart(ctx context.Context, d time.Duration) bool {
+	select {
+	case <-ctx.Done():
+		log.Println("Shutdown during backoff")
+		return false
+	case <-restartVLCCh:
+		log.Println("Restart requested during backoff")
+		return true
+	case <-time.After(d):
+		return true
+	}
+}
+
+func nextBackoff(current, max time.Duration) time.Duration {
+	current *= 2
+	if current > max {
+		return max
+	}
+	return current
 }
 
 // ---- web UI ----
@@ -247,8 +273,7 @@ var pageTmpl = template.Must(template.New("page").Parse(`
 	</form>
 
 	<p style="margin-top:2rem;font-size:0.9rem;color:#555;">
-		Changes are saved to <code>/etc/camplayer-vlc.conf</code> and will be used
-		the next time VLC is (re)started by the supervisor.
+		Changes are saved to <code>/etc/camplayer-vlc.conf</code> and VLC is restarted automatically.
 	</p>
 </body>
 </html>
@@ -301,10 +326,9 @@ func startWebServer(ctx context.Context) error {
 			return
 		}
 
-		// Preserve existing VLC_PATH if present
+		// Load existing config to preserve VLC_PATH
 		cfg, err := loadConfig()
 		if err != nil {
-			// if we can't load, just use defaults
 			cfg = &Config{}
 		}
 		cfg.RTSP_URL = rtsp
@@ -315,7 +339,12 @@ func startWebServer(ctx context.Context) error {
 		if err := saveConfig(cfg); err != nil {
 			data.Error = "Failed to save config: " + err.Error()
 		} else {
-			data.Message = "Configuration saved."
+			data.Message = "Configuration saved. VLC is restarting..."
+			// Trigger VLC restart (non-blocking)
+			select {
+			case restartVLCCh <- struct{}{}:
+			default:
+			}
 		}
 
 		if err := pageTmpl.Execute(w, data); err != nil {
