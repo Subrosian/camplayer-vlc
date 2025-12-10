@@ -32,7 +32,7 @@ func main() {
 		log.Fatalf("RTSP_URL is required in %s", configPath)
 	}
 	if cfg.VLC_PATH == "" {
-		cfg.VLC_PATH = "vlc"
+		cfg.VLC_PATH = "cvlc"
 	}
 
 	log.Printf("Config loaded: VLC_PATH=%s RTSP_URL=%s", cfg.VLC_PATH, cfg.RTSP_URL)
@@ -101,12 +101,10 @@ func runLoop(ctx context.Context, cfg *Config) error {
 		default:
 		}
 
-		// Command: vlc <rtsp-url>
 		args := []string{cfg.RTSP_URL}
 		cmd := exec.CommandContext(ctx, cfg.VLC_PATH, args...)
 
-		// 🔑 IMPORTANT: give VLC the same stdin/stdout/stderr as your shell
-		cmd.Stdin = os.Stdin
+		// No stdin needed for cvlc; just wire logs
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
