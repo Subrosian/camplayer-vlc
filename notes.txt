@@ -1,3 +1,4 @@
+--- Initial Setup
 sudo apt update
 sudo apt install git
 sudo apt install golang
@@ -6,6 +7,10 @@ git clone https://github.com/Subrosian/camplayer-vlc
 cd camplayer-vlc/
 go build -o camplayer-vlc .
 
-
+--- Update Project
 git pull
 go build -o camplayer-vlc .
+
+--- Make config
+sudo nano /etc/camplayer-vlc.conf
+RTSP_URL=rtsp://user:pass@camera-ip:554/stream
