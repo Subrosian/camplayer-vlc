@@ -32,15 +32,21 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/camplayer-vlc
-Restart=always
-RestartSec=2
 
-# Run as the 'pi' user (adjust if needed)
 User=pi
 Group=pi
 WorkingDirectory=/home/pi
+Environment=HOME=/home/pi
+
+ExecStart=/usr/local/bin/camplayer-vlc
+
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
+
 
