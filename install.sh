@@ -31,8 +31,10 @@ cd /opt/camplayer-vlc
 echo "Building camplayer-vlc..."
 go build -o camplayer-vlc .
 
-echo "Stopping possible services..."
-systemctl stop camplayer-vlc.service
+if systemctl cat camplayer-vlc.service >/dev/null 2>&1; then
+	echo "Stopping previously installed service to modify files..."
+	systemctl stop camplayer-vlc.service
+fi
 
 echo "Installing camplayer-vlc binary to /usr/local/bin/..."
 cp camplayer-vlc /usr/local/bin/
