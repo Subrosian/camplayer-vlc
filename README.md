@@ -16,17 +16,19 @@ Run the installer
 sudo bash ./install.sh
 ```
 
-Edit the config file directly OR
-```
-sudo nano /etc/camplayer-vlc.conf
-```
-
 Edit the RTSP stream using the web address
 ```
 http://{IP}:8080
 ```
 
-Restart camplayer-vlc service (if config is modified manually)
+## Editing the config manually
+
+Edit the config file
+```
+sudo nano /etc/camplayer-vlc.conf
+```
+
+Restart camplayer-vlc service
 ```
 sudo systemctl restart camplayer-vlc.service
 ```
