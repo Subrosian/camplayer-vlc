@@ -6,7 +6,7 @@ Download the installer
 wget https://github.com/Subrosian/camplayer-vlc/raw/refs/heads/main/install.sh
 ```
 
-Start the installer
+Run the installer
 ```
 sudo bash ./install.sh
 ```
@@ -19,4 +19,11 @@ sudo nano /etc/camplayer-vlc.conf
 Restart camplayer-vlc service
 ```
 sudo systemctl restart camplayer-vlc.service
+```
+
+## Updating
+
+Run the installer again (locally)
+```
+sudo bash /opt/camplayer-vlc/install.sh
 ```
