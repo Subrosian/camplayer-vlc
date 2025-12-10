@@ -8,7 +8,7 @@ wget https://github.com/Subrosian/camplayer-vlc/raw/refs/heads/main/install.sh
 
 Start the installer
 ```
-sudo sh ./install.sh
+sudo bash ./install.sh
 ```
 
 Edit the config file
