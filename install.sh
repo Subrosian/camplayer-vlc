@@ -76,6 +76,8 @@ EOF
 else
 	echo "/etc/camplayer-vlc.conf already exists; leaving it unchanged."
 fi
+sudo chown pi:pi /etc/camplayer-vlc.conf
+sudo chmod 664 /etc/camplayer-vlc.conf
 
 echo "Reloading systemd daemon and enabling service..."
 systemctl daemon-reload
