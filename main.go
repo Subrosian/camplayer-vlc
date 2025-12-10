@@ -104,6 +104,9 @@ func runLoop(ctx context.Context, cfg *Config) error {
 		// Command: vlc <rtsp-url>
 		args := []string{cfg.RTSP_URL}
 		cmd := exec.CommandContext(ctx, cfg.VLC_PATH, args...)
+
+		// 🔑 IMPORTANT: give VLC the same stdin/stdout/stderr as your shell
+		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
