@@ -13,6 +13,9 @@ sudo chmod 755 /usr/local/bin/camplayer-vlc
 --- Update Project
 git pull
 go build -o camplayer-vlc .
+sudo cp camplayer-vlc /usr/local/bin/
+sudo chown root:root /usr/local/bin/camplayer-vlc
+sudo chmod 755 /usr/local/bin/camplayer-vlc
 
 --- Make config
 sudo nano /etc/camplayer-vlc.conf
