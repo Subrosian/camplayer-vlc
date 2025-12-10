@@ -1,5 +1,8 @@
+## Overview
+This is a simple "vibe-coded" app written in Go that simply boots up a Raspberry Pi and displays an RTSP stream on the HDMI. It takes inspiration from the Camplayer project, but works on newer OS versions and with only the features that I personally needed (basically none).
+
 ## Installation
-Set up a default environment of "Raspberry Pi OS Lite (Trixie)"
+Set up a default environment of "Raspberry Pi OS Lite 64-bit (Trixie)"
 
 Download the installer
 ```
