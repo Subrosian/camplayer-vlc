@@ -1,3 +1,5 @@
 sudo apt update
+sudo apt install git
 sudo apt install golang
 sudo apt install vlc
+git clone https://github.com/Subrosian/camplayer-vlc
