@@ -3,6 +3,7 @@ This is a simple "vibe-coded" app written in Go that boots up a Raspberry Pi and
 
 ## Installation
 -Set up a default environment of "Raspberry Pi OS Lite 64-bit (Trixie)"
+
 -Make sure you use "pi" as the username
 
 Download the installer
