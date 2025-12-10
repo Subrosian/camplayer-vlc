@@ -15,3 +15,8 @@ Edit the config file
 ```
 sudo nano /etc/camplayer-vlc.conf
 ```
+
+Restart camplayer-vlc service
+```
+sudo systemctl restart camplayer-vlc.service
+```
