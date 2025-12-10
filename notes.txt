@@ -11,6 +11,7 @@ sudo chown root:root /usr/local/bin/camplayer-vlc
 sudo chmod 755 /usr/local/bin/camplayer-vlc
 
 --- Update Project
+cd camplayer-vlc/
 git pull
 go build -o camplayer-vlc .
 sudo cp camplayer-vlc /usr/local/bin/
